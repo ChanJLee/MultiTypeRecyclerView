@@ -2,19 +2,28 @@ package me.chan.mtrv;
 
 import android.content.Context;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.collection.SparseArrayCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> {
 
 	private LayoutInflater mLayoutInflater;
 	private List<Data> mList = new ArrayList<>();
+
+	private final SparseArrayCompat<Class<?>> mType2FactoryRepo = new SparseArrayCompat<>();
+
+	private final Map<Class<?>, Integer> mClazz2TypeRepo = new HashMap<>();
 
 	public MultiTypeAdapter(Context context) {
 		mLayoutInflater = LayoutInflater.from(context);
@@ -22,16 +31,38 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 	@NonNull
 	@Override
-	public Vh onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-		// todo
-		return null;
+	public final Vh onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+		Class<?> rendererClazz = mType2FactoryRepo.get(viewType);
+		if (rendererClazz == null) {
+			throw new IllegalStateException("missing type: " + viewType + "'s class information");
+		}
+
+		ParameterizedType parameterizedType = (ParameterizedType) rendererClazz.getGenericSuperclass();
+		assert parameterizedType != null;
+
+		Class<?> viewBindingClazz = (Class<?>) parameterizedType.getActualTypeArguments()[0];
+
+		try {
+			Method method = viewBindingClazz.getMethod("inflate", LayoutInflater.class, ViewGroup.class, boolean.class);
+			method.setAccessible(true);
+
+			Object viewBinding = method.invoke(null, mLayoutInflater, parent, false);
+
+			Constructor<?> constructor = rendererClazz.getConstructor(viewBindingClazz);
+			constructor.setAccessible(true);
+			Renderer<?, ?> renderer = (Renderer<?, ?>) constructor.newInstance(viewBinding);
+
+			return new Vh(renderer);
+		} catch (Throwable throwable) {
+			throw new RuntimeException("create renderer failed", throwable);
+		}
 	}
 
 	@Override
-	public void onBindViewHolder(@NonNull Vh holder, int position) {
+	public final void onBindViewHolder(@NonNull Vh holder, int position) {
 		Data data = get(position);
-		holder.renderer.bind(data);
-		holder.renderer.render(data);
+		holder.mRenderer.bind(data);
+		holder.mRenderer.render(data);
 	}
 
 	@Override
@@ -42,13 +73,44 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 	@Override
 	public void onViewAttachedToWindow(@NonNull Vh holder) {
 		super.onViewAttachedToWindow(holder);
-		holder.renderer.attach();
+		holder.mRenderer.attach();
 	}
 
 	@Override
 	public void onViewDetachedFromWindow(@NonNull Vh holder) {
-		holder.renderer.detach();
+		holder.mRenderer.detach();
 		super.onViewDetachedFromWindow(holder);
+	}
+
+	@Override
+	public int getItemViewType(int position) {
+		Data data = get(position);
+
+		Class<?> key = data.getClass();
+		Integer type = mClazz2TypeRepo.get(key);
+		if (type == null) {
+			return registerType(data);
+		}
+
+		return type;
+	}
+
+	private int registerType(Data data) {
+		Class<?> clazz = data.getClass();
+		Data.BindRenderer bindRenderer = clazz.getAnnotation(Data.BindRenderer.class);
+		if (bindRenderer == null) {
+			throw new IllegalArgumentException("MultiTypeAdapter's Data should be annotated by Data.BindRenderer");
+		}
+
+		int type = mClazz2TypeRepo.size() + 1;
+		mClazz2TypeRepo.put(clazz, type);
+
+		Class<?> rendererClazz = bindRenderer.renderer();
+		if (Renderer.class.isAssignableFrom(rendererClazz)) {
+			mType2FactoryRepo.put(type, rendererClazz);
+		}
+
+		return type;
 	}
 
 	public void setList(@NonNull List<? extends Data> list) {
@@ -145,11 +207,11 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 	public static class Vh extends RecyclerView.ViewHolder {
 
-		private final Renderer<?, ?> renderer;
+		private final Renderer<?, ?> mRenderer;
 
 		public Vh(@NonNull Renderer<?, ?> renderer) {
 			super(renderer.getRoot());
-			this.renderer = renderer;
+			this.mRenderer = renderer;
 		}
 	}
 }
