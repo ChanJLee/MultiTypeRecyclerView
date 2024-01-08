@@ -179,9 +179,7 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 	public void append(@NonNull List<? extends Data> list) {
 		int start = mList.size();
-		for (Data data : list) {
-			mList.add(data);
-		}
+		mList.addAll(list);
 		notifyItemRangeInserted(start, list.size());
 	}
 
