@@ -66,24 +66,24 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 	}
 
 	@Override
-	public int getItemCount() {
+	public final int getItemCount() {
 		return mList.size();
 	}
 
 	@Override
-	public void onViewAttachedToWindow(@NonNull Vh holder) {
+	public final void onViewAttachedToWindow(@NonNull Vh holder) {
 		super.onViewAttachedToWindow(holder);
 		holder.mRenderer.attach();
 	}
 
 	@Override
-	public void onViewDetachedFromWindow(@NonNull Vh holder) {
+	public final void onViewDetachedFromWindow(@NonNull Vh holder) {
 		holder.mRenderer.detach();
 		super.onViewDetachedFromWindow(holder);
 	}
 
 	@Override
-	public int getItemViewType(int position) {
+	public final int getItemViewType(int position) {
 		Data data = get(position);
 
 		Class<?> key = data.getClass();
@@ -163,6 +163,14 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 		remove(index);
 	}
 
+	public void remove(int index) {
+		if (index < 0 || index >= getItemCount()) {
+			throw new IllegalArgumentException("update index out of range");
+		}
+		mList.remove(index);
+		notifyItemRemoved(index);
+	}
+
 	public void append(Data data) {
 		int start = mList.size();
 		mList.add(data);
@@ -196,13 +204,6 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 			mList.add(index++, data);
 		}
 		notifyItemRangeInserted(start, list.size());
-	}
-
-
-	public void remove(int index) {
-		if (index < 0 || index >= getItemCount()) {
-			throw new IllegalArgumentException("update index out of range");
-		}
 	}
 
 	public static class Vh extends RecyclerView.ViewHolder {
