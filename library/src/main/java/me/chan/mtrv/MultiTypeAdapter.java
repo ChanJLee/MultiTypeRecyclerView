@@ -18,7 +18,7 @@ import java.util.Map;
 
 public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> {
 
-	private LayoutInflater mLayoutInflater;
+	private final LayoutInflater mLayoutInflater;
 	private List<Data> mList = new ArrayList<>();
 
 	private final SparseArrayCompat<Class<?>> mType2FactoryRepo = new SparseArrayCompat<>();
