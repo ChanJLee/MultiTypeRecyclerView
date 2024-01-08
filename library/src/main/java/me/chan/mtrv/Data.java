@@ -10,6 +10,7 @@ public class Data {
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target({ElementType.TYPE})
 	public @interface BindRenderer {
+
 		Class<? extends Renderer<?, ?>> renderer();
 	}
 }
