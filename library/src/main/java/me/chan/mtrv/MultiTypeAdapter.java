@@ -205,7 +205,7 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 		notifyItemRangeInserted(start, list.size());
 	}
 
-	public static class Vh extends RecyclerView.ViewHolder {
+	static class Vh extends RecyclerView.ViewHolder {
 
 		private final Renderer<?, ?> mRenderer;
 

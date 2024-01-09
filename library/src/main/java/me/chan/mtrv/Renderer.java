@@ -2,15 +2,16 @@ package me.chan.mtrv;
 
 import android.view.View;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 public abstract class Renderer<V extends ViewBinding, D extends Data> {
 	private Data mData;
 
-	private final V mBinding;
+	protected final V mBinding;
 
-	Renderer(V binding) {
+	protected Renderer(V binding) {
 		mBinding = binding;
 	}
 
@@ -43,9 +44,9 @@ public abstract class Renderer<V extends ViewBinding, D extends Data> {
 		return mBinding.getRoot();
 	}
 
-	public final void render(Data data) {
+	public final void render(@NonNull Data data) {
 		onRender((D) data);
 	}
 
-	protected abstract void onRender(D data);
+	protected abstract void onRender(@NonNull D data);
 }
