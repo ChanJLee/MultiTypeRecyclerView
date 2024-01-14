@@ -22,7 +22,7 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 	private List<Data> mList = new ArrayList<>();
 
-	private final SparseArrayCompat<Class<?>> mType2FactoryRepo = new SparseArrayCompat<>();
+	private final SparseArrayCompat<Factory> mType2FactoryRepo = new SparseArrayCompat<>();
 
 	private final Map<Class<?>, Integer> mClazz2TypeRepo = new HashMap<>();
 
@@ -33,30 +33,8 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 	@NonNull
 	@Override
 	public final Vh onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-		Class<?> rendererClazz = mType2FactoryRepo.get(viewType);
-		if (rendererClazz == null) {
-			throw new IllegalStateException("missing type: " + viewType + "'s class information");
-		}
-
-		ParameterizedType parameterizedType = (ParameterizedType) rendererClazz.getGenericSuperclass();
-		assert parameterizedType != null;
-
-		Class<?> viewBindingClazz = (Class<?>) parameterizedType.getActualTypeArguments()[0];
-
-		try {
-			Method method = viewBindingClazz.getMethod("inflate", LayoutInflater.class, ViewGroup.class, boolean.class);
-			method.setAccessible(true);
-
-			Object viewBinding = method.invoke(null, mLayoutInflater, parent, false);
-
-			Constructor<?> constructor = rendererClazz.getConstructor(viewBindingClazz);
-			constructor.setAccessible(true);
-			Renderer<?, ?> renderer = (Renderer<?, ?>) constructor.newInstance(viewBinding);
-
-			return new Vh(renderer);
-		} catch (Throwable throwable) {
-			throw new RuntimeException("create renderer failed", throwable);
-		}
+		Factory factory = mType2FactoryRepo.get(viewType);
+		return new Vh(factory.create(mLayoutInflater, parent));
 	}
 
 	@Override
@@ -108,10 +86,29 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 		Class<?> rendererClazz = bindRenderer.renderer();
 		if (Renderer.class.isAssignableFrom(rendererClazz)) {
-			mType2FactoryRepo.put(type, rendererClazz);
+			mType2FactoryRepo.put(type, createFactory(rendererClazz));
 		}
 
 		return type;
+	}
+
+	private Factory createFactory(Class<?> rendererClazz) {
+		ParameterizedType parameterizedType = (ParameterizedType) rendererClazz.getGenericSuperclass();
+		assert parameterizedType != null;
+
+		Class<?> viewBindingClazz = (Class<?>) parameterizedType.getActualTypeArguments()[0];
+
+		try {
+			Method method = viewBindingClazz.getMethod("inflate", LayoutInflater.class, ViewGroup.class, boolean.class);
+			method.setAccessible(true);
+
+			Constructor<?> constructor = rendererClazz.getConstructor(viewBindingClazz);
+			constructor.setAccessible(true);
+
+			return new Factory(constructor, method);
+		} catch (Throwable throwable) {
+			throw new RuntimeException("create renderer failed", throwable);
+		}
 	}
 
 	public void setList(@NonNull List<? extends Data> list) {
@@ -212,6 +209,25 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 		public Vh(@NonNull Renderer<?, ?> renderer) {
 			super(renderer.getRoot());
 			this.mRenderer = renderer;
+		}
+	}
+
+	private static class Factory {
+		private final Constructor<?> mRendererCtor;
+		private final Method mViewBindingInflate;
+
+		public Factory(Constructor<?> rendererCtor, Method viewBindingInflate) {
+			mRendererCtor = rendererCtor;
+			mViewBindingInflate = viewBindingInflate;
+		}
+
+		public Renderer<?, ?> create(LayoutInflater layoutInflater, ViewGroup parent) {
+			try {
+				Object viewBinding = mViewBindingInflate.invoke(null, layoutInflater, parent, false);
+				return (Renderer<?, ?>) mRendererCtor.newInstance(viewBinding);
+			} catch (Throwable throwable) {
+				throw new RuntimeException("create renderer failed", throwable);
+			}
 		}
 	}
 }
