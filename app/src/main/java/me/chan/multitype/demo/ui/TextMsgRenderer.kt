@@ -11,6 +11,7 @@ class TextMsgRenderer(binding: ItemTextBinding): Renderer<ItemTextBinding, TextM
         mBinding.msg.text = data.text
     }
 
+    // tell multi type system how to create View
     @BindRenderer(renderer = TextMsgRenderer::class)
     class TextMsg(
         val text: CharSequence
