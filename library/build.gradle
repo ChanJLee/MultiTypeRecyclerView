@@ -30,6 +30,28 @@ android {
     }
 }
 
+apply plugin: 'maven-publish'
+
+task androidSourcesJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from android.sourceSets.main.java.srcDirs
+}
+
+project.afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                groupId = 'me.chan.lib'
+                artifactId = 'mtrv'
+                version = '1.0.0'
+
+                artifact bundleReleaseAar
+                artifact androidSourcesJar
+            }
+        }
+    }
+}
+
 dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
