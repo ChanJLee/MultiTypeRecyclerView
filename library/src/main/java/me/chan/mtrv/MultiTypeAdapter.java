@@ -1,6 +1,7 @@
 package me.chan.mtrv;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> {
+	private static final boolean DEBUG = false;
 
 	private final LayoutInflater mLayoutInflater;
 
@@ -24,7 +26,7 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 
 	private final SparseArrayCompat<Factory> mType2FactoryRepo = new SparseArrayCompat<>();
 
-	private final Map<Class<?>, Integer> mClazz2TypeRepo = new HashMap<>();
+	private final Map<Object, Integer> mTypeRepo = new HashMap<>();
 
 	public MultiTypeAdapter(Context context) {
 		mLayoutInflater = LayoutInflater.from(context);
@@ -42,6 +44,9 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 		Data data = get(position);
 		holder.mRenderer.bind(data);
 		holder.mRenderer.render(data);
+		if (DEBUG) {
+			Log.d("MultiTypeAdapter", "onBindViewHolder: " + position);
+		}
 	}
 
 	@Override
@@ -64,27 +69,26 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 	@Override
 	public final int getItemViewType(int position) {
 		Data data = get(position);
-
-		Class<?> key = data.getClass();
-		Integer type = mClazz2TypeRepo.get(key);
+		Object key = data.isReuseEnable() ? data.getClass() : data;
+		Integer type = mTypeRepo.get(key);
 		if (type == null) {
-			return registerType(data);
+			return registerType(key, data);
 		}
 
 		return type;
 	}
 
-	private int registerType(Data data) {
+	private int registerType(Object key, Data data) {
 		Class<?> clazz = data.getClass();
 		Data.BindRenderer bindRenderer = clazz.getAnnotation(Data.BindRenderer.class);
 		if (bindRenderer == null) {
 			throw new IllegalArgumentException("MultiTypeAdapter's Data should be annotated by Data.BindRenderer");
 		}
 
-		int type = mClazz2TypeRepo.size() + 1;
-		mClazz2TypeRepo.put(clazz, type);
+		int type = mTypeRepo.size() + 1;
+		mTypeRepo.put(key, type);
 
-		Class<?> rendererClazz = bindRenderer.renderer();
+		Class<?> rendererClazz = bindRenderer.value();
 		if (Renderer.class.isAssignableFrom(rendererClazz)) {
 			mType2FactoryRepo.put(type, createFactory(rendererClazz));
 		}
@@ -144,12 +148,14 @@ public class MultiTypeAdapter extends RecyclerView.Adapter<MultiTypeAdapter.Vh> 
 		update(index);
 	}
 
+	private static final Object SIG_UPDATE = new Object();
+
 	public void update(int index) {
 		if (index < 0 || index >= getItemCount()) {
 			throw new IllegalArgumentException("update index out of range");
 		}
 
-		notifyItemChanged(index);
+		notifyItemChanged(index, SIG_UPDATE);
 	}
 
 	public void remove(@NonNull Data data) {
