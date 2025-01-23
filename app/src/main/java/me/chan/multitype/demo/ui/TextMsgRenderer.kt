@@ -12,7 +12,7 @@ class TextMsgRenderer(binding: ItemTextBinding): Renderer<ItemTextBinding, TextM
     }
 
     // tell multi type system how to create View
-    @BindRenderer(renderer = TextMsgRenderer::class)
+    @BindRenderer(TextMsgRenderer::class)
     class TextMsg(
         val text: CharSequence
     ): Data()
